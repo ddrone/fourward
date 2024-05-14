@@ -22,6 +22,7 @@ typedef struct user_function {
 typedef struct calculator {
   char buffer[1024];
   char* next;
+  bool eof;
 
   int stack[1024];
   int* stack_top;
@@ -165,15 +166,20 @@ void init_calculator(calculator* calc) {
   calc->ip = &calc->bytecode[0];
   calc->interpreting = false;
   calc->last;
+  calc->eof = false;
 }
 
-bool eat_token(calculator* calc, bool* eof) {
+bool eat_token(calculator* calc) {
+  if (calc->eof) {
+    return false;
+  }
+
   calc->next = calc->buffer;
   bool scanning = true;
   while (scanning) {
     int c = getchar();
     if (c == EOF) {
-      *eof = true;
+      calc->eof = true;
       break;
     }
 
@@ -201,9 +207,8 @@ int main() {
   calculator calc;
   init_calculator(&calc);
 
-  bool eof = false;
-  while (!eof) {
-    if (eat_token(&calc, &eof)) {
+  while (!calc.eof) {
+    if (eat_token(&calc)) {
       process_token(&calc);
     }
     else {
