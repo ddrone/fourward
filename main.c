@@ -1,28 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
-typedef int bool;
-const bool true = 1;
-const bool false = 0;
+typedef enum bytecode_kind {
+  LIT,
+  PRIM_CALL
+} bytecode_kind;
+
+typedef struct bytecode {
+  bytecode_kind kind;
+  int value;
+} bytecode;
 
 typedef struct calculator {
   int stack[1024];
   int* stack_top;
+
+  bytecode bytecode[1024];
+  bytecode* here;
+
+  bool interpreting;
+  bytecode* ip;
 } calculator;
-
-typedef void (*handler)(calculator*);
-
-typedef struct primitive {
-  char* name;
-  handler fn;
-} primitive;
-
-bool read_int(char* buffer, int* result) {
-  char* end;
-  *result = strtol(buffer, &end, 10);
-  return *end == '\0' && *buffer != '\0';
-}
 
 void push_value(calculator* calc, int value) {
   *calc->stack_top++ = value;
@@ -36,6 +36,32 @@ int pop_value(calculator* calc) {
 
   calc->stack_top--;
   return *calc->stack_top;
+}
+
+
+void write_lit(calculator* calc, int lit) {
+  calc->here->kind = LIT;
+  calc->here->value = lit;
+  calc->here++;
+}
+
+void write_prim_call(calculator* calc, int index) {
+  calc->here->kind = PRIM_CALL;
+  calc->here->value = index;
+  calc->here++;
+}
+
+typedef void (*handler)(calculator*);
+
+typedef struct primitive {
+  char* name;
+  handler fn;
+} primitive;
+
+bool read_int(char* buffer, int* result) {
+  char* end;
+  *result = strtol(buffer, &end, 10);
+  return *end == '\0' && *buffer != '\0';
 }
 
 void prim_add(calculator* calc) {
@@ -63,6 +89,34 @@ static primitive primitives[] = {
 
 static const int num_primitives = sizeof(primitives) / sizeof(primitives[0]);
 
+bool step(calculator* calc) {
+  if (calc->ip >= calc->here) {
+    return false;
+  }
+
+  switch (calc->ip->kind) {
+    case LIT:
+      push_value(calc, calc->ip->value);
+      break;
+    case PRIM_CALL: {
+      int index = calc->ip->value;
+      if (index >= 0 && index < num_primitives) {
+        primitives[index].fn(calc);
+      }
+      else {
+        printf("Unexpected call to primitive with index %d!\n", index);
+        exit(3);
+      }
+      break;
+    default:
+      printf("Unexpected bytecode kind %d!\n", calc->ip->kind);
+      exit(4);
+    }
+  }
+  calc->ip++;
+}
+
+
 void process_token(calculator* calc, char* buffer, char* next) {
   if (buffer == next) {
     return;
@@ -71,12 +125,22 @@ void process_token(calculator* calc, char* buffer, char* next) {
   *next = '\0';
   int number;
   if (read_int(buffer, &number)) {
-    push_value(calc, number);
+    if (calc->interpreting) {
+      push_value(calc, number);
+    }
+    else {
+      write_lit(calc, number);
+    }
   }
   else {
     for (int i = 0; i < num_primitives; i++) {
       if (strcmp(buffer, primitives[i].name) == 0) {
-        primitives[i].fn(calc);
+        if (calc->interpreting) {
+          primitives[i].fn(calc);
+        }
+        else {
+          write_prim_call(calc, i);
+        }
         return;
       }
     }
@@ -87,9 +151,11 @@ void process_token(calculator* calc, char* buffer, char* next) {
 }
 
 void init_calculator(calculator* calc) {
-  calc->stack_top = &calc->stack[0]; // Is the right-hand side valid? I have no idea
+  calc->stack_top = &calc->stack[0];
+  calc->here = &calc->bytecode[0];
+  calc->ip = &calc->bytecode[0];
+  calc->interpreting = false;
 }
-
 
 int main() {
   char buffer[1024];
@@ -118,4 +184,9 @@ int main() {
   }
 
   process_token(&calc, buffer, next);
+
+  calc.interpreting = true;
+  while (step(&calc)) {
+    // Do nothing
+  }
 }
