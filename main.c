@@ -13,6 +13,12 @@ typedef struct bytecode {
   int value;
 } bytecode;
 
+typedef struct user_function {
+  char* name;
+  bytecode* start;
+  struct user_function* next;
+} user_function;
+
 typedef struct calculator {
   char buffer[1024];
   char* next;
@@ -25,6 +31,8 @@ typedef struct calculator {
 
   bool interpreting;
   bytecode* ip;
+
+  user_function* last;
 } calculator;
 
 void push_value(calculator* calc, int value) {
@@ -156,6 +164,7 @@ void init_calculator(calculator* calc) {
   calc->here = &calc->bytecode[0];
   calc->ip = &calc->bytecode[0];
   calc->interpreting = false;
+  calc->last;
 }
 
 bool eat_token(calculator* calc, bool* eof) {
