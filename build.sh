@@ -2,4 +2,4 @@
 
 set -e
 
-gcc main.c -o target/fourward
+gcc -g main.c -o target/fourward

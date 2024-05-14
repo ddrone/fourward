@@ -14,6 +14,9 @@ typedef struct bytecode {
 } bytecode;
 
 typedef struct calculator {
+  char buffer[1024];
+  char* next;
+
   int stack[1024];
   int* stack_top;
 
@@ -117,12 +120,10 @@ bool step(calculator* calc) {
 }
 
 
-void process_token(calculator* calc, char* buffer, char* next) {
-  if (buffer == next) {
-    return;
-  }
+void process_token(calculator* calc) {
+  char* buffer = calc->buffer;
+  char* next = calc->next;
 
-  *next = '\0';
   int number;
   if (read_int(buffer, &number)) {
     if (calc->interpreting) {
@@ -157,15 +158,13 @@ void init_calculator(calculator* calc) {
   calc->interpreting = false;
 }
 
-int main() {
-  char buffer[1024];
-  char* next = buffer;
-  calculator calc;
-  init_calculator(&calc);
-
-  while (true) {
+bool eat_token(calculator* calc, bool* eof) {
+  calc->next = calc->buffer;
+  bool scanning = true;
+  while (scanning) {
     int c = getchar();
     if (c == EOF) {
+      *eof = true;
       break;
     }
 
@@ -174,16 +173,34 @@ int main() {
       case '\n':
       case '\t':
       case '\r':
-        process_token(&calc, buffer, next);
-        next = buffer;
+        if (calc->next != calc->buffer) { // Already have non-whitespace character in the buffer
+          scanning = false;
+        }
         break;
       default:
-        // TODO: check for buffer overflow here
-        *next++ = c;
+        *calc->next++ = c;
     }
   }
 
-  process_token(&calc, buffer, next);
+  *calc->next = '\0';
+  return calc->next != calc->buffer;
+}
+
+int main() {
+  char buffer[1024];
+  char* next = buffer;
+  calculator calc;
+  init_calculator(&calc);
+
+  bool eof = false;
+  while (!eof) {
+    if (eat_token(&calc, &eof)) {
+      process_token(&calc);
+    }
+    else {
+      break;
+    }
+  }
 
   calc.interpreting = true;
   while (step(&calc)) {
