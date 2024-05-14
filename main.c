@@ -5,7 +5,8 @@
 
 typedef enum bytecode_kind {
   LIT,
-  PRIM_CALL
+  PRIM_CALL,
+  USER_CALL,
 } bytecode_kind;
 
 typedef struct bytecode {
@@ -15,7 +16,7 @@ typedef struct bytecode {
 
 typedef struct user_function {
   char* name;
-  bytecode* start;
+  int start;
   struct user_function* next;
 } user_function;
 
@@ -27,16 +28,25 @@ typedef struct calculator {
   int stack[1024];
   int* stack_top;
 
+  int call_stack[1024];
+  int call_stack_index;
+
   bytecode bytecode[1024];
-  bytecode* here;
+  int here;
 
   bool interpreting;
-  bytecode* ip;
 
   user_function* last;
 } calculator;
 
 bool eat_token(calculator* calc);
+bool step(calculator* calc);
+
+void run(calculator* calc) {
+  while (step(calc)) {
+    // Do nothing
+  }
+}
 
 void push_value(calculator* calc, int value) {
   *calc->stack_top++ = value;
@@ -54,14 +64,20 @@ int pop_value(calculator* calc) {
 
 
 void write_lit(calculator* calc, int lit) {
-  calc->here->kind = LIT;
-  calc->here->value = lit;
+  calc->bytecode[calc->here].kind = LIT;
+  calc->bytecode[calc->here].value = lit;
   calc->here++;
 }
 
 void write_prim_call(calculator* calc, int index) {
-  calc->here->kind = PRIM_CALL;
-  calc->here->value = index;
+  calc->bytecode[calc->here].kind = PRIM_CALL;
+  calc->bytecode[calc->here].value = index;
+  calc->here++;
+}
+
+void write_user_call(calculator* calc, int offset) {
+  calc->bytecode[calc->here].kind = USER_CALL;
+  calc->bytecode[calc->here].value = offset;
   calc->here++;
 }
 
@@ -70,6 +86,7 @@ typedef void (*handler)(calculator*);
 typedef struct primitive {
   char* name;
   handler fn;
+  bool immediate;
 } primitive;
 
 bool read_int(char* buffer, int* result) {
@@ -95,6 +112,12 @@ void prim_print(calculator* calc) {
   printf("%d\n", x);
 }
 
+void prim_dup(calculator* calc) {
+  int x = pop_value(calc);
+  push_value(calc, x);
+  push_value(calc, x);
+}
+
 void prim_colon(calculator* calc) {
   calc->interpreting = false;
   if (!eat_token(calc)) {
@@ -111,33 +134,49 @@ void prim_colon(calculator* calc) {
   new_definition->next = calc->last;
   new_definition->start = calc->here;
   calc->last = new_definition;
+  // printf("Defining function %s\n", name_copy);
 }
 
 void prim_semicolon(calculator* calc) {
+  write_prim_call(calc, 0); // Write "ret" at the end of current function!
+  // puts("Finished defining function");
   calc->interpreting = true;
 }
 
+void prim_ret(calculator* calc) {
+  if (calc->call_stack_index <= 0) {
+    puts("Call stack underflow!");
+    exit(6);
+  }
+
+  calc->call_stack_index--;
+}
+
 static primitive primitives[] = {
-  { .name = "+", .fn = prim_add },
-  { .name = "*", .fn = prim_mul },
-  { .name = "print", .fn = prim_print },
-  { .name = ":", .fn = prim_colon },
-  { .name = ";", .fn = prim_semicolon },
+  { .name = "ret", .fn = prim_ret, .immediate = false }, // "ret" should be first!
+  { .name = "dup", .fn = prim_dup, .immediate = false },
+  { .name = "+", .fn = prim_add, .immediate = false },
+  { .name = "*", .fn = prim_mul, .immediate = false },
+  { .name = "print", .fn = prim_print, .immediate = false },
+  { .name = ":", .fn = prim_colon, .immediate = false },
+  { .name = ";", .fn = prim_semicolon, .immediate = true },
 };
 
 static const int num_primitives = sizeof(primitives) / sizeof(primitives[0]);
 
 bool step(calculator* calc) {
-  if (calc->ip >= calc->here) {
+  if (calc->call_stack_index == 0) {
     return false;
   }
 
-  switch (calc->ip->kind) {
+  int ip = calc->call_stack[calc->call_stack_index - 1]++;
+  bytecode instr = calc->bytecode[ip];
+  switch (instr.kind) {
     case LIT:
-      push_value(calc, calc->ip->value);
+      push_value(calc, instr.value);
       break;
     case PRIM_CALL: {
-      int index = calc->ip->value;
+      int index = instr.value;
       if (index >= 0 && index < num_primitives) {
         primitives[index].fn(calc);
       }
@@ -146,18 +185,20 @@ bool step(calculator* calc) {
         exit(3);
       }
       break;
+    case USER_CALL:
+      calc->call_stack[calc->call_stack_index++] = instr.value;
+      break;
     default:
-      printf("Unexpected bytecode kind %d!\n", calc->ip->kind);
+      printf("Unexpected bytecode kind %d!\n", instr.kind);
       exit(4);
     }
   }
-  calc->ip++;
 }
 
 
 void process_token(calculator* calc) {
   char* buffer = calc->buffer;
-  char* next = calc->next;
+  // printf("Processing token %s\n", buffer);
 
   int number;
   if (read_int(buffer, &number)) {
@@ -169,12 +210,31 @@ void process_token(calculator* calc) {
     }
   }
   else {
+    user_function* user_fn = calc->last;
+
+    while (user_fn != NULL) {
+      if (strcmp(buffer, user_fn->name) == 0) {
+        if (calc->interpreting) {
+          calc->call_stack[0] = user_fn->start;
+          calc->call_stack_index = 1;
+          run(calc);
+        }
+        else {
+          write_user_call(calc, user_fn->start);
+        }
+        return;
+      }
+      user_fn = user_fn->next;
+    }
+
     for (int i = 0; i < num_primitives; i++) {
       if (strcmp(buffer, primitives[i].name) == 0) {
-        if (calc->interpreting) {
+        if (calc->interpreting || primitives[i].immediate) {
+          // puts("Interpreting primitive");
           primitives[i].fn(calc);
         }
         else {
+          // puts("Compiling primitive");
           write_prim_call(calc, i);
         }
         return;
@@ -188,9 +248,8 @@ void process_token(calculator* calc) {
 
 void init_calculator(calculator* calc) {
   calc->stack_top = &calc->stack[0];
-  calc->here = &calc->bytecode[0];
-  calc->ip = &calc->bytecode[0];
-  calc->interpreting = false;
+  calc->here = 0;
+  calc->interpreting = true;
   calc->last;
   calc->eof = false;
 }
@@ -240,10 +299,5 @@ int main() {
     else {
       break;
     }
-  }
-
-  calc.interpreting = true;
-  while (step(&calc)) {
-    // Do nothing
   }
 }
