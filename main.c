@@ -36,6 +36,8 @@ typedef struct calculator {
   user_function* last;
 } calculator;
 
+bool eat_token(calculator* calc);
+
 void push_value(calculator* calc, int value) {
   *calc->stack_top++ = value;
 }
@@ -93,10 +95,34 @@ void prim_print(calculator* calc) {
   printf("%d\n", x);
 }
 
+void prim_colon(calculator* calc) {
+  calc->interpreting = false;
+  if (!eat_token(calc)) {
+    puts("Expected function name after ':'!");
+    exit(5);
+  }
+
+  int name_length = strlen(calc->buffer);
+  char* name_copy = malloc(name_length + 1);
+  strcpy(name_copy, calc->buffer);
+
+  user_function* new_definition = malloc(sizeof(user_function));
+  new_definition->name = name_copy;
+  new_definition->next = calc->last;
+  new_definition->start = calc->here;
+  calc->last = new_definition;
+}
+
+void prim_semicolon(calculator* calc) {
+  calc->interpreting = true;
+}
+
 static primitive primitives[] = {
   { .name = "+", .fn = prim_add },
   { .name = "*", .fn = prim_mul },
   { .name = "print", .fn = prim_print },
+  { .name = ":", .fn = prim_colon },
+  { .name = ";", .fn = prim_semicolon },
 };
 
 static const int num_primitives = sizeof(primitives) / sizeof(primitives[0]);
