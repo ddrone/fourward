@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef int bool;
 const bool true = 1;
@@ -9,6 +10,13 @@ typedef struct calculator {
   int stack[1024];
   int* stack_top;
 } calculator;
+
+typedef void (*handler)(calculator*);
+
+typedef struct primitive {
+  char* name;
+  handler fn;
+} primitive;
 
 bool read_int(char* buffer, int* result) {
   char* end;
@@ -30,6 +38,31 @@ int pop_value(calculator* calc) {
   return *calc->stack_top;
 }
 
+void prim_add(calculator* calc) {
+  int x = pop_value(calc);
+  int y = pop_value(calc);
+  push_value(calc, x + y);
+}
+
+void prim_mul(calculator* calc) {
+  int x = pop_value(calc);
+  int y = pop_value(calc);
+  push_value(calc, x * y);
+}
+
+void prim_print(calculator* calc) {
+  int x = pop_value(calc);
+  printf("%d\n", x);
+}
+
+static primitive primitives[] = {
+  { .name = "+", .fn = prim_add },
+  { .name = "*", .fn = prim_mul },
+  { .name = "print", .fn = prim_print },
+};
+
+static const int num_primitives = sizeof(primitives) / sizeof(primitives[0]);
+
 void process_token(calculator* calc, char* buffer, char* next) {
   if (buffer == next) {
     return;
@@ -40,22 +73,14 @@ void process_token(calculator* calc, char* buffer, char* next) {
   if (read_int(buffer, &number)) {
     push_value(calc, number);
   }
-  else if (buffer[0] == '+') {
-    int x = pop_value(calc);
-    int y = pop_value(calc);
-    push_value(calc, x + y);
-  }
-  else if (buffer[0] == '*') {
-    int x = pop_value(calc);
-    int y = pop_value(calc);
-    push_value(calc, x * y);
-  }
-  else if (buffer[0] == 'p') {
-    int x = pop_value(calc);
-    printf("%d\n", x);
-  }
   else {
-    puts("Unknown word:\n    ");
+    for (int i = 0; i < num_primitives; i++) {
+      if (strcmp(buffer, primitives[i].name) == 0) {
+        primitives[i].fn(calc);
+        return;
+      }
+    }
+    fputs("Unknown word:\n    ", stdout);
     puts(buffer);
     exit(2);
   }
