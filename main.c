@@ -251,6 +251,31 @@ void prim_swap(calculator* calc) {
   push_value(calc, y);
 }
 
+const char* bytecode_kind_str(bytecode_kind bk) {
+  switch (bk) {
+    case LIT:
+      return "LIT";
+    case PRIM_CALL:
+      return "PRIM_CALL";
+    case USER_CALL:
+      return "USER_CALL";
+    case COND_BRANCH:
+      return "COND_BRANCH";
+    case BRANCH:
+      return "BRANCH";
+    default:
+      return "<ERROR>";
+  }
+}
+
+void dump_instr(int index, bytecode bc);
+
+void prim_dump_bytecode(calculator* calc) {
+  for (int i = 0; i < calc->here; i++) {
+    dump_instr(i, calc->bytecode[i]);
+  }
+}
+
 static primitive primitives[] = {
   { .name = "ret", .fn = prim_ret, .immediate = false }, // "ret" should be first!
   { .name = "dup", .fn = prim_dup, .immediate = false },
@@ -270,9 +295,24 @@ static primitive primitives[] = {
   { .name = "write-0branch", .fn = prim_write_0branch, .immediate = false },
   { .name = "swap", .fn = prim_swap, .immediate = false },
   { .name = "modify-code", .fn = prim_modify_code, .immediate = false },
+  { .name = "dump", .fn = prim_dump_bytecode, .immediate = false },
 };
 
 static const int num_primitives = sizeof(primitives) / sizeof(primitives[0]);
+
+void dump_instr(int index, bytecode instr) {
+  if (instr.kind == PRIM_CALL) {
+    if (instr.value >= 0 && instr.value < num_primitives) {
+      fprintf(stderr, "[%4d]: %4d %s '%s'\n", index, instr.value, bytecode_kind_str(instr.kind), primitives[instr.value].name);
+    }
+    else {
+      fprintf(stderr, "[%4d]: %4d %s <UNKNOWN PRIMITIVE>\n", index, instr.value, bytecode_kind_str(instr.kind));
+    }
+  }
+  else {
+    fprintf(stderr, "[%4d]: %4d %s\n", index, instr.value, bytecode_kind_str(instr.kind));
+  }
+}
 
 bool step(calculator* calc) {
   if (calc->call_stack_index == 0) {

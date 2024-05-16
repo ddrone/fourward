@@ -32,5 +32,6 @@
   then
 ;
 
+dump
 5 mod -10 mod + print
 5 silly -10 silly + print
