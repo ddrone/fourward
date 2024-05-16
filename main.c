@@ -354,6 +354,8 @@ bool step(calculator* calc) {
       exit(4);
     }
   }
+
+  return true;
 }
 
 
