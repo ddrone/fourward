@@ -166,6 +166,7 @@ void prim_colon(calculator* calc) {
   new_definition->name = name_copy;
   new_definition->next = calc->last;
   new_definition->start = calc->here;
+  new_definition->immediate = false;
   calc->last = new_definition;
   // printf("Defining function %s\n", name_copy);
 }
