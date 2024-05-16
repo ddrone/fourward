@@ -410,7 +410,7 @@ void init_calculator(calculator* calc) {
   calc->stack_top = &calc->stack[0];
   calc->here = 0;
   calc->interpreting = true;
-  calc->last;
+  calc->last = NULL;
   calc->eof = false;
 }
 
