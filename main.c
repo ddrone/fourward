@@ -450,8 +450,6 @@ bool eat_token(calculator* calc) {
 }
 
 int main() {
-  char buffer[1024];
-  char* next = buffer;
   calculator calc;
   init_calculator(&calc);
 
