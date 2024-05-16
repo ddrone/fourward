@@ -14,6 +14,35 @@
   swap here modify-code
 ;
 
+: begin immediate
+  here
+;
+
+: until immediate
+  write-0branch
+;
+
+: '(' 40 ;
+: ')' 41 ;
+
+: ( immediate
+  0
+  begin
+    read
+    dup '(' =
+    if
+      swap 1 + swap
+    then
+    ')' =
+    if
+      1 -
+    then
+    dup
+  until
+;
+
+( Now it should be possible to leave comments, I think? )
+
 : mod
   dup
   0 <=

@@ -128,6 +128,12 @@ void prim_mul(calculator* calc) {
   push_value(calc, x * y);
 }
 
+void prim_eq(calculator* calc) {
+  int x = pop_value(calc);
+  int y = pop_value(calc);
+  push_value(calc, x == y);
+}
+
 void prim_le(calculator* calc) {
   int y = pop_value(calc);
   int x = pop_value(calc);
@@ -252,6 +258,16 @@ void prim_swap(calculator* calc) {
   push_value(calc, y);
 }
 
+void prim_read(calculator* calc) {
+  int c = getchar();
+  if (c == EOF) {
+    puts("Unexpected EOF!");
+    exit(10);
+  }
+
+  push_value(calc, c);
+}
+
 const char* bytecode_kind_str(bytecode_kind bk) {
   switch (bk) {
     case LIT:
@@ -285,6 +301,7 @@ static primitive primitives[] = {
   { .name = "*", .fn = prim_mul, .immediate = false },
   { .name = "<", .fn = prim_le, .immediate = false },
   { .name = "<=", .fn = prim_lt, .immediate = false },
+  { .name = "=", .fn = prim_eq, .immediate = false },
   { .name = "print", .fn = prim_print, .immediate = false },
   { .name = ":", .fn = prim_colon, .immediate = false },
   { .name = ";", .fn = prim_semicolon, .immediate = true },
@@ -297,6 +314,7 @@ static primitive primitives[] = {
   { .name = "swap", .fn = prim_swap, .immediate = false },
   { .name = "modify-code", .fn = prim_modify_code, .immediate = false },
   { .name = "dump", .fn = prim_dump_bytecode, .immediate = false },
+  { .name = "read", .fn = prim_read, .immediate = false },
 };
 
 static const int num_primitives = sizeof(primitives) / sizeof(primitives[0]);
