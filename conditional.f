@@ -26,7 +26,7 @@
 : ')' 41 ;
 
 : ( immediate
-  0
+  1
   begin
     read
     dup '(' =
@@ -37,11 +37,11 @@
     if
       1 -
     then
-    dup
+    dup 0 =
   until
 ;
 
-( Now it should be possible to leave comments, I think? )
+( Now it should be possible to leave (nested) comments, I think? )
 
 : mod
   dup

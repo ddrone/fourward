@@ -268,6 +268,11 @@ void prim_read(calculator* calc) {
   push_value(calc, c);
 }
 
+void prim_emit(calculator* calc) {
+  int x = pop_value(calc);
+  putchar(x);
+}
+
 const char* bytecode_kind_str(bytecode_kind bk) {
   switch (bk) {
     case LIT:
@@ -315,6 +320,7 @@ static primitive primitives[] = {
   { .name = "modify-code", .fn = prim_modify_code, .immediate = false },
   { .name = "dump", .fn = prim_dump_bytecode, .immediate = false },
   { .name = "read", .fn = prim_read, .immediate = false },
+  { .name = "emit", .fn = prim_emit, .immediate = false },
 };
 
 static const int num_primitives = sizeof(primitives) / sizeof(primitives[0]);
