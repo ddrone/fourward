@@ -134,6 +134,12 @@ void prim_le(calculator* calc) {
   push_value(calc, x < y);
 }
 
+void prim_lt(calculator* calc) {
+  int y = pop_value(calc);
+  int x = pop_value(calc);
+  push_value(calc, x <= y);
+}
+
 void prim_print(calculator* calc) {
   int x = pop_value(calc);
   printf("%d\n", x);
@@ -251,7 +257,8 @@ static primitive primitives[] = {
   { .name = "+", .fn = prim_add, .immediate = false },
   { .name = "-", .fn = prim_sub, .immediate = false },
   { .name = "*", .fn = prim_mul, .immediate = false },
-  { .name = "<=", .fn = prim_le, .immediate = false },
+  { .name = "<", .fn = prim_le, .immediate = false },
+  { .name = "<=", .fn = prim_lt, .immediate = false },
   { .name = "print", .fn = prim_print, .immediate = false },
   { .name = ":", .fn = prim_colon, .immediate = false },
   { .name = ";", .fn = prim_semicolon, .immediate = true },
